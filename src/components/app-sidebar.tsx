@@ -57,37 +57,6 @@ const data = {
       icon: (
         <HugeiconsIcon icon={Wallet01Icon} strokeWidth={2} />
       ),
-      items: [
-        {
-          title: "Budget Planning",
-          url: "/budgets/planning",
-        },
-        {
-          title: "Savings Goals",
-          url: "/budgets/goals",
-        },
-      ],
-    },
-    {
-      title: "Analytics",
-      url: "/analytics",
-      icon: (
-        <HugeiconsIcon icon={Analytics01Icon} strokeWidth={2} />
-      ),
-      items: [
-        {
-          title: "Spending Reports",
-          url: "/analytics/spending",
-        },
-        {
-          title: "Income Reports",
-          url: "/analytics/income",
-        },
-        {
-          title: "Monthly Summary",
-          url: "/analytics/summary",
-        },
-      ],
     },
   ],
   projects: [
@@ -96,13 +65,6 @@ const data = {
       url: "/recurring",
       icon: (
         <HugeiconsIcon icon={Calendar01Icon} strokeWidth={2} />
-      ),
-    },
-    {
-      name: "Categories",
-      url: "/categories",
-      icon: (
-        <HugeiconsIcon icon={TagsIcon} strokeWidth={2} />
       ),
     },
   ],
@@ -122,12 +84,6 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
     staleTime: Infinity, // User profile doesn't change often
   })
 
-  const user = {
-    name: userData?.name || "User",
-    email: userData?.email || "",
-    avatar: userData?.avatar || `https://api.dicebear.com/9.x/lorelei/svg?seed=${userData?.name || "User"}`,
-  }
-
   return (
     <Sidebar variant="inset" {...props}>
       <SidebarHeader>
@@ -135,7 +91,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
           <SidebarMenuItem>
             <SidebarMenuButton size="lg" asChild>
               <Link href="/dashboard">
-                <div className="flex aspect-square size-8 items-center justify-center rounded-lg">
+                <div className="flex aspect-square size-8 items-center justify-center rounded-md bg-primary text-primary-foreground">
                   <HugeiconsIcon icon={Leaf01Icon} strokeWidth={2} className="size-5" />
                 </div>
                 <div className="grid flex-1 text-left text-sm leading-tight">
@@ -153,7 +109,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         
       </SidebarContent>
       <SidebarFooter>
-        <NavUser user={user} isLoading={isUserLoading} />
+        <NavUser user={userData} isLoading={isUserLoading} />
       </SidebarFooter>
     </Sidebar>
   )

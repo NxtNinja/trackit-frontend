@@ -64,10 +64,11 @@ import { RefreshCcwIcon } from "lucide-react"
 
 import { Skeleton } from "@/components/ui/skeleton"
 
-import { useQuery } from "@tanstack/react-query"
+import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { TransactionResponse } from "@/types/api"
 
 export default function Page() {
+  const queryClient = useQueryClient()
   const [startDate, setStartDate] = React.useState<Date | undefined>(() => {
     const now = new Date()
     return new Date(now.getFullYear(), now.getMonth(), 1)
@@ -99,58 +100,72 @@ export default function Page() {
       
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <h2 className="text-xl font-semibold tracking-tight">Financial Summary</h2>
-        <div className="flex items-center gap-1.5 sm:gap-3 bg-card border rounded-lg p-1 shadow-sm w-full sm:w-auto overflow-hidden">
-          <div className="flex items-center gap-2 px-1.5 sm:px-2 text-muted-foreground shrink-0">
-            <HugeiconsIcon icon={Calendar01Icon} className="size-4" />
-            <span className="text-sm font-medium hidden md:inline">Date Range</span>
-          </div>
-          <Separator orientation="vertical" className="h-5" />
-          <div className="flex items-center gap-1 sm:gap-2 flex-1">
-            
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button
-                  variant="outline"
-                  data-empty={!startDate}
-                  className="flex-1 sm:w-[120px] h-8 justify-between text-left font-normal text-[10px] sm:text-xs data-[empty=true]:text-muted-foreground border-0 shadow-none bg-transparent hover:bg-muted/50 px-2"
-                >
-                  <span className="truncate">{startDate ? format(startDate, "MMM d, yy") : "Start"}</span>
-                  <ChevronDownIcon className="size-3 opacity-50 shrink-0" />
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0" align="start">
-                <Calendar
-                  mode="single"
-                  selected={startDate}
-                  onSelect={setStartDate}
-                  defaultMonth={startDate}
-                />
-              </PopoverContent>
-            </Popover>
+        <div className="flex items-center gap-2 sm:gap-3">
+          <Button 
+            variant="outline" 
+            size="sm" 
+            onClick={() => {
+              queryClient.invalidateQueries()
+            }}
+            className="h-10 rounded-xl px-4 gap-2 border-none ring-1 ring-border/50 hover:bg-muted/50 transition-all group"
+          >
+            <RefreshCcwIcon className={cn("size-4 text-muted-foreground transition-all duration-500", transactionsLoading && "animate-spin text-primary")} />
+            <span className="hidden sm:inline">Refresh</span>
+          </Button>
+          
+          <div className="flex items-center gap-1.5 sm:gap-3 bg-card border rounded-xl p-1 shadow-sm w-full sm:w-auto overflow-hidden ring-1 ring-border/50 border-none">
+            <div className="flex items-center gap-2 px-1.5 sm:px-2 text-muted-foreground shrink-0">
+              <HugeiconsIcon icon={Calendar01Icon} className="size-4" />
+              <span className="text-sm font-medium hidden md:inline">Date Range</span>
+            </div>
+            <Separator orientation="vertical" className="h-5" />
+            <div className="flex items-center gap-1 sm:gap-2 flex-1">
+              
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    data-empty={!startDate}
+                    className="flex-1 sm:w-[120px] h-8 justify-between text-left font-normal text-[10px] sm:text-xs data-[empty=true]:text-muted-foreground border-0 shadow-none bg-transparent hover:bg-muted/50 px-2"
+                  >
+                    <span className="truncate">{startDate ? format(startDate, "MMM d, yy") : "Start"}</span>
+                    <ChevronDownIcon className="size-3 opacity-50 shrink-0" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar
+                    mode="single"
+                    selected={startDate}
+                    onSelect={setStartDate}
+                    defaultMonth={startDate}
+                  />
+                </PopoverContent>
+              </Popover>
 
-            <span className="text-muted-foreground text-[10px] font-medium shrink-0">to</span>
+              <span className="text-muted-foreground text-[10px] font-medium shrink-0">to</span>
 
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button
-                  variant="outline"
-                  data-empty={!endDate}
-                  className="flex-1 sm:w-[120px] h-8 justify-between text-left font-normal text-[10px] sm:text-xs data-[empty=true]:text-muted-foreground border-0 shadow-none bg-transparent hover:bg-muted/50 px-2"
-                >
-                  <span className="truncate">{endDate ? format(endDate, "MMM d, yy") : "End"}</span>
-                  <ChevronDownIcon className="size-3 opacity-50 shrink-0" />
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0" align="start">
-                <Calendar
-                  mode="single"
-                  selected={endDate}
-                  onSelect={setEndDate}
-                  defaultMonth={endDate}
-                />
-              </PopoverContent>
-            </Popover>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    data-empty={!endDate}
+                    className="flex-1 sm:w-[120px] h-8 justify-between text-left font-normal text-[10px] sm:text-xs data-[empty=true]:text-muted-foreground border-0 shadow-none bg-transparent hover:bg-muted/50 px-2"
+                  >
+                    <span className="truncate">{endDate ? format(endDate, "MMM d, yy") : "End"}</span>
+                    <ChevronDownIcon className="size-3 opacity-50 shrink-0" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar
+                    mode="single"
+                    selected={endDate}
+                    onSelect={setEndDate}
+                    defaultMonth={endDate}
+                  />
+                </PopoverContent>
+              </Popover>
 
+            </div>
           </div>
         </div>
       </div>

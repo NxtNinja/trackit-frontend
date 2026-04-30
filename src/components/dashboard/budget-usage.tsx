@@ -26,7 +26,7 @@ export function BudgetUsage() {
   }
 
   return (
-    <Card className="border shadow-sm h-full flex flex-col">
+    <Card className="border-none ring-1 ring-border/50 bg-card/30 backdrop-blur-sm rounded-[32px] shadow-none overflow-hidden h-full flex flex-col">
       <CardHeader>
         <div className="flex items-center justify-between">
           <div className="space-y-1">

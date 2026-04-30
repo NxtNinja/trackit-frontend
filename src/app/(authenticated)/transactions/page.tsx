@@ -29,6 +29,9 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
   DropdownMenuSeparator,
+  DropdownMenuSub,
+  DropdownMenuSubTrigger,
+  DropdownMenuSubContent,
 } from "@/components/ui/dropdown-menu"
 import {
   AlertDialog,
@@ -117,6 +120,19 @@ export default function TransactionsPage() {
     }
   })
 
+  const recurringMutation = useMutation({
+    mutationFn: async ({ id, frequency }: { id: string, frequency: string }) => {
+      return await apiProxy(`/transactions/recurring/from-transaction/${id}`, "POST", { frequency })
+    },
+    onSuccess: () => {
+      toast.success("Recurring expense setup successfully")
+      queryClient.invalidateQueries({ queryKey: ['transactions'] })
+    },
+    onError: (error: any) => {
+      toast.error(error.message || "Failed to setup recurring expense")
+    }
+  })
+
   const transactions = transactionsData?.transactions || []
   const totalPages = transactionsData?.totalPages || 1
   const total = transactionsData?.total || 0
@@ -146,6 +162,15 @@ export default function TransactionsPage() {
         </div>
         
         <div className="flex items-center gap-3">
+          <Button 
+            variant="outline" 
+            size="sm" 
+            onClick={() => queryClient.invalidateQueries({ queryKey: ['transactions'] })}
+            className="h-10 rounded-xl px-4 gap-2 border-none ring-1 ring-border/50 hover:bg-muted/50 transition-all group"
+          >
+            <RefreshCcwIcon className={cn("size-4 text-muted-foreground transition-all duration-500", isLoading && "animate-spin text-primary")} />
+            <span className="hidden sm:inline">Refresh</span>
+          </Button>
           <Button variant="outline" size="sm" className="h-10 rounded-xl px-4 gap-2 hidden md:flex border-none ring-1 ring-border/50 hover:bg-muted/50 transition-all">
             <DownloadIcon className="size-4 text-muted-foreground" />
             <span>Export</span>
@@ -235,6 +260,12 @@ export default function TransactionsPage() {
                               <span>Recurring</span>
                             </div>
                           )}
+                          {recurringMutation.isPending && recurringMutation.variables?.id === item.id && (
+                            <div className="flex items-center gap-1.5 text-[10px] text-orange-500 font-bold uppercase tracking-widest animate-pulse">
+                              <RefreshCcwIcon className="size-2.5 animate-spin" />
+                              <span>Processing...</span>
+                            </div>
+                          )}
                         </div>
                       </TableCell>
                       <TableCell>
@@ -265,15 +296,44 @@ export default function TransactionsPage() {
                       <TableCell className="pr-6 text-right">
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="icon" className="size-9 rounded-xl hover:bg-background transition-all hover:ring-1 hover:ring-border">
+                            <Button 
+                              variant="ghost" 
+                              size="icon" 
+                              className="size-9 rounded-xl hover:bg-background transition-all hover:ring-1 hover:ring-border"
+                              disabled={recurringMutation.isPending && recurringMutation.variables?.id === item.id}
+                            >
                               <MoreHorizontalIcon className="size-4 text-muted-foreground" />
                             </Button>
                           </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end" className="w-40 rounded-xl border-none shadow-xl ring-1 ring-border/50">
+                          <DropdownMenuContent align="end" className="w-48 rounded-xl border-none shadow-xl ring-1 ring-border/50">
                             <DropdownMenuItem onClick={() => handleEdit(item)} className="gap-2 cursor-pointer rounded-lg">
                               <PencilIcon className="size-3.5 text-muted-foreground" />
                               <span>Edit</span>
                             </DropdownMenuItem>
+                            
+                            {!item.recurring_id && (
+                              <DropdownMenuSub>
+                                <DropdownMenuSubTrigger 
+                                  className="gap-2 rounded-lg"
+                                  disabled={recurringMutation.isPending}
+                                >
+                                  <RefreshCcwIcon className="size-3.5 text-muted-foreground" />
+                                  <span>Make Recurring</span>
+                                </DropdownMenuSubTrigger>
+                                <DropdownMenuSubContent className="rounded-xl border-none shadow-xl ring-1 ring-border/50 p-1">
+                                  {["daily", "weekly", "monthly"].map((freq) => (
+                                    <DropdownMenuItem 
+                                      key={freq}
+                                      onClick={() => recurringMutation.mutate({ id: item.id, frequency: freq })}
+                                      className="capitalize cursor-pointer rounded-lg"
+                                    >
+                                      {freq}
+                                    </DropdownMenuItem>
+                                  ))}
+                                </DropdownMenuSubContent>
+                              </DropdownMenuSub>
+                            )}
+
                             <DropdownMenuSeparator className="bg-border/50" />
                             <DropdownMenuItem 
                               onClick={() => setDeletingTransactionId(item.id)} 

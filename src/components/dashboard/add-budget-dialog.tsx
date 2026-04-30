@@ -7,10 +7,10 @@ import * as z from "zod"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
 import { PlusIcon, LoaderCircle, CalendarIcon, PencilIcon, TrashIcon } from "lucide-react"
-import { format, startOfDay } from "date-fns"
+import { format } from "date-fns"
 
 import { Button } from "@/components/ui/button"
-
+import { AddCategoryDialog } from "@/components/dashboard/add-category-dialog"
 import {
   Dialog,
   DialogContent,
@@ -52,36 +52,34 @@ import {
 import { apiProxy } from "@/lib/api"
 import { useIsMobile } from "@/hooks/use-mobile"
 import { cn } from "@/lib/utils"
-import { Transaction } from "@/types/api"
-import { AddCategoryDialog } from "./add-category-dialog"
+import { Budget } from "@/types/api"
 
-const transactionSchema = z.object({
-  description: z.string().min(3, "Description must be at least 3 characters"),
+const budgetSchema = z.object({
   amount: z.coerce.number().positive("Amount must be positive"),
   categoryId: z.string().min(1, "Please select a category"),
-  type: z.enum(["income", "expense"]),
-  date: z.date(),
+  period: z.enum(["monthly", "weekly", "yearly"]),
+  startDate: z.date(),
 })
 
-type TransactionFormValues = z.infer<typeof transactionSchema>
+type BudgetFormValues = z.infer<typeof budgetSchema>
 
 interface Category {
   id: string
   name: string
 }
 
-interface AddTransactionDialogProps {
-  transaction?: Transaction
+interface AddBudgetDialogProps {
+  budget?: Budget
   trigger?: React.ReactNode
   open?: boolean
   onOpenChange?: (open: boolean) => void
 }
 
-export function AddTransactionDialog({ transaction, trigger, open: controlledOpen, onOpenChange }: AddTransactionDialogProps) {
+export function AddBudgetDialog({ budget, trigger, open: controlledOpen, onOpenChange }: AddBudgetDialogProps) {
   const [internalOpen, setInternalOpen] = React.useState(false)
   const isMobile = useIsMobile()
   const queryClient = useQueryClient()
-  const isEditing = !!transaction
+  const isEditing = !!budget
 
   const open = controlledOpen !== undefined ? controlledOpen : internalOpen
   const setOpen = onOpenChange !== undefined ? onOpenChange : setInternalOpen
@@ -116,63 +114,62 @@ export function AddTransactionDialog({ transaction, trigger, open: controlledOpe
     control,
     watch,
     formState: { errors },
-  } = useForm({
-    resolver: zodResolver(transactionSchema),
+  } = useForm<BudgetFormValues>({
+    resolver: zodResolver(budgetSchema),
     defaultValues: {
-      description: transaction?.description || "",
-      amount: transaction?.amount ? Number(transaction.amount) : 0,
-      categoryId: transaction?.category_id || "",
-      type: (transaction?.type as "expense" | "income") || "expense",
-      date: transaction?.date ? new Date(transaction.date) : new Date(),
+      amount: budget?.amount ? Number(budget.amount) : 0,
+      categoryId: budget?.category_id || "",
+      period: (budget?.period as "monthly" | "weekly" | "yearly") || "monthly",
+      startDate: budget?.start_date ? new Date(budget.start_date) : new Date(),
     },
   })
 
-  // Reset form when transaction changes
+  // Reset form when budget changes or modal opens
   React.useEffect(() => {
-    if (transaction && open) {
+    if (budget && open) {
       reset({
-        description: transaction.description,
-        amount: Number(transaction.amount),
-        categoryId: transaction.category_id,
-        type: transaction.type as "expense" | "income",
-        date: new Date(transaction.date),
+        amount: Number(budget.amount),
+        categoryId: budget.category_id,
+        period: budget.period as "monthly" | "weekly" | "yearly",
+        startDate: new Date(budget.start_date),
       })
-    } else if (!transaction && open) {
+    } else if (!budget && open) {
       reset({
-        description: "",
         amount: 0,
         categoryId: "",
-        type: "expense",
-        date: new Date(),
+        period: "monthly",
+        startDate: new Date(),
       })
     }
-  }, [transaction, reset, open])
+  }, [budget, reset, open])
 
   const mutation = useMutation({
-    mutationFn: async (data: TransactionFormValues) => {
+    mutationFn: async (data: BudgetFormValues) => {
       const payload = {
-        type: data.type,
-        amount: Number(data.amount),
         categoryId: data.categoryId,
-        description: data.description,
-        date: format(data.date, "yyyy-MM-dd'T'10:00:00'Z'"),
+        amount: Number(data.amount),
+        period: data.period,
+        startDate: format(data.startDate, "yyyy-MM-dd"),
       }
       
-      if (isEditing && transaction) {
-        return await apiProxy(`/transactions/updateTransaction/${transaction.id}`, "PUT", payload)
+      if (isEditing && budget) {
+        return await apiProxy(`/transactions/budgets/${budget.id}`, "PUT", payload)
       }
-      return await apiProxy("/transactions/addTransaction", "POST", payload)
+      return await apiProxy("/transactions/budgets/createBudget", "POST", payload)
     },
     onSuccess: () => {
-      toast.success(isEditing ? "Transaction updated successfully" : "Transaction added successfully")
-      queryClient.invalidateQueries({ queryKey: ['transactions'] })
-      queryClient.invalidateQueries({ queryKey: ['summary'] })
+      toast.success(isEditing ? "Budget updated successfully" : "Budget created successfully")
+      queryClient.invalidateQueries({ queryKey: ['budgets-list'] })
+      queryClient.invalidateQueries({ queryKey: ['budgets-usage'] })
       setOpen(false)
       if (!isEditing) reset()
     },
+    onError: (error: any) => {
+      toast.error(error.message || "Failed to process budget")
+    }
   })
 
-  const onSubmit = (data: TransactionFormValues) => {
+  const onSubmit = (data: BudgetFormValues) => {
     mutation.mutate(data)
   }
 
@@ -180,61 +177,17 @@ export function AddTransactionDialog({ transaction, trigger, open: controlledOpe
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-4 py-4 px-4 sm:px-0">
       <FieldGroup>
         <Field>
-          <FieldLabel htmlFor="description">Description</FieldLabel>
-          <Input
-            id="description"
-            placeholder="e.g. Starbucks Coffee"
-            {...register("description")}
-          />
-          {errors.description && <FieldError>{errors.description.message as string}</FieldError>}
-        </Field>
-
-        <div className="grid grid-cols-2 gap-4">
-          <Field>
-            <FieldLabel htmlFor="amount">Amount (₹)</FieldLabel>
-            <Input
-              id="amount"
-              type="number"
-              step="0.01"
-              placeholder="0.00"
-              {...register("amount")}
-            />
-            {errors.amount && <FieldError>{errors.amount.message as string}</FieldError>}
-          </Field>
-
-          <Field>
-            <FieldLabel htmlFor="type">Type</FieldLabel>
-            <Controller
-              name="type"
-              control={control}
-              render={({ field }) => (
-                <Select onValueChange={field.onChange} defaultValue={field.value} value={field.value}>
-                  <SelectTrigger id="type" className="rounded-xl h-10 border-none ring-1 ring-border/50 bg-background">
-                    <SelectValue placeholder="Select type" />
-                  </SelectTrigger>
-                  <SelectContent className="rounded-xl border-none">
-                    <SelectItem value="expense">Expense</SelectItem>
-                    <SelectItem value="income">Income</SelectItem>
-                  </SelectContent>
-                </Select>
-              )}
-            />
-            {errors.type && <FieldError>{errors.type.message as string}</FieldError>}
-          </Field>
-        </div>
-
-        <Field>
           <FieldLabel htmlFor="categoryId">Category</FieldLabel>
           <Controller
             name="categoryId"
             control={control}
             render={({ field }) => (
-              <Select onValueChange={field.onChange} defaultValue={field.value} value={field.value}>
-                <SelectTrigger id="categoryId" className="rounded-xl h-10 border-none ring-1 ring-border/50 bg-background">
+              <Select onValueChange={field.onChange} value={field.value} disabled={isEditing}>
+                <SelectTrigger id="categoryId" className="rounded-xl h-11 border-none ring-1 ring-border/50 bg-background disabled:opacity-50">
                   <SelectValue placeholder="Select category" />
                 </SelectTrigger>
                 <SelectContent className="rounded-xl border-none p-1">
-                  <div className="max-h-[200px] overflow-y-auto custom-scrollbar">
+                   <div className="max-h-[200px] overflow-y-auto custom-scrollbar">
                     {categories.length === 0 ? (
                       <div className="py-6 px-2 text-center text-xs text-muted-foreground italic">
                         No categories found
@@ -248,50 +201,90 @@ export function AddTransactionDialog({ transaction, trigger, open: controlledOpe
                           >
                             {cat.name}
                           </SelectItem>
-                          <Button 
-                            variant="ghost" 
-                            size="icon" 
-                            type="button"
-                            className="size-7 opacity-0 group-hover:opacity-100 transition-opacity text-destructive hover:text-destructive hover:bg-destructive/10 rounded-md shrink-0"
-                            onClick={(e) => {
-                              e.preventDefault()
-                              e.stopPropagation()
-                              deleteCategoryMutation.mutate(cat.id)
-                            }}
-                          >
-                            <TrashIcon className="size-3.5" />
-                          </Button>
+                          {!isEditing && (
+                            <Button 
+                              variant="ghost" 
+                              size="icon" 
+                              type="button"
+                              className="size-7 opacity-0 group-hover:opacity-100 transition-opacity text-destructive hover:text-destructive hover:bg-destructive/10 rounded-md shrink-0"
+                              onClick={(e) => {
+                                e.preventDefault()
+                                e.stopPropagation()
+                                deleteCategoryMutation.mutate(cat.id)
+                              }}
+                            >
+                              <TrashIcon className="size-3.5" />
+                            </Button>
+                          )}
                         </div>
                       ))
                     )}
                   </div>
                   
-                  <div className="mt-1 border-t pt-1">
-                    <AddCategoryDialog 
-                      defaultType={watch("type") as "income" | "expense"}
-                      trigger={
-                        <Button 
-                          variant="ghost" 
-                          type="button"
-                          className="w-full justify-start gap-2 h-9 text-xs text-primary hover:text-primary hover:bg-primary/5 rounded-lg font-semibold px-2"
-                        >
-                          <PlusIcon className="size-3.5" />
-                          <span>Add new category</span>
-                        </Button>
-                      }
-                    />
-                  </div>
+                  {!isEditing && (
+                    <div className="mt-1 border-t pt-1">
+                      <AddCategoryDialog 
+                        defaultType="expense"
+                        trigger={
+                          <Button 
+                            variant="ghost" 
+                            type="button"
+                            className="w-full justify-start gap-2 h-9 text-xs text-primary hover:text-primary hover:bg-primary/5 rounded-lg font-semibold px-2"
+                          >
+                            <PlusIcon className="size-3.5" />
+                            <span>Add new category</span>
+                          </Button>
+                        }
+                      />
+                    </div>
+                  )}
                 </SelectContent>
               </Select>
             )}
           />
-          {errors.categoryId && <FieldError>{errors.categoryId.message as string}</FieldError>}
+          {errors.categoryId && <FieldError>{errors.categoryId.message}</FieldError>}
         </Field>
 
+        <div className="grid grid-cols-2 gap-4">
+          <Field>
+            <FieldLabel htmlFor="amount">Limit Amount (₹)</FieldLabel>
+            <Input
+              id="amount"
+              type="number"
+              step="0.01"
+              placeholder="0.00"
+              className="h-11"
+              {...register("amount")}
+            />
+            {errors.amount && <FieldError>{errors.amount.message}</FieldError>}
+          </Field>
+
+          <Field>
+            <FieldLabel htmlFor="period">Period</FieldLabel>
+            <Controller
+              name="period"
+              control={control}
+              render={({ field }) => (
+                <Select onValueChange={field.onChange} value={field.value}>
+                  <SelectTrigger id="period" className="rounded-xl h-11 border-none ring-1 ring-border/50 bg-background">
+                    <SelectValue placeholder="Select period" />
+                  </SelectTrigger>
+                  <SelectContent className="rounded-xl border-none ring-1 ring-border/50">
+                    <SelectItem value="monthly" className="rounded-lg">Monthly</SelectItem>
+                    <SelectItem value="weekly" className="rounded-lg">Weekly</SelectItem>
+                    <SelectItem value="yearly" className="rounded-lg">Yearly</SelectItem>
+                  </SelectContent>
+                </Select>
+              )}
+            />
+            {errors.period && <FieldError>{errors.period.message}</FieldError>}
+          </Field>
+        </div>
+
         <Field>
-          <FieldLabel htmlFor="date">Date</FieldLabel>
+          <FieldLabel htmlFor="startDate">Start Date</FieldLabel>
           <Controller
-            name="date"
+            name="startDate"
             control={control}
             render={({ field }) => (
               <Popover>
@@ -299,7 +292,7 @@ export function AddTransactionDialog({ transaction, trigger, open: controlledOpe
                   <Button
                     variant={"outline"}
                     className={cn(
-                      "w-full h-10 pl-3 text-left font-normal rounded-xl border-none ring-1 ring-border/50 bg-background",
+                      "w-full h-11 pl-3 text-left font-normal rounded-xl border-none ring-1 ring-border/50 bg-background",
                       !field.value && "text-muted-foreground"
                     )}
                   >
@@ -311,7 +304,7 @@ export function AddTransactionDialog({ transaction, trigger, open: controlledOpe
                     <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
                   </Button>
                 </PopoverTrigger>
-                <PopoverContent className="w-auto p-0 rounded-xl border-none" align="start">
+                <PopoverContent className="w-auto p-0 rounded-xl border-none ring-1 ring-border/50" align="start">
                   <Calendar
                     mode="single"
                     selected={field.value}
@@ -322,7 +315,7 @@ export function AddTransactionDialog({ transaction, trigger, open: controlledOpe
               </Popover>
             )}
           />
-          {errors.date && <FieldError>{errors.date.message as string}</FieldError>}
+          {errors.startDate && <FieldError>{errors.startDate.message}</FieldError>}
         </Field>
       </FieldGroup>
 
@@ -331,10 +324,10 @@ export function AddTransactionDialog({ transaction, trigger, open: controlledOpe
           {mutation.isPending ? (
             <>
               <LoaderCircle className="mr-2 h-4 w-4 animate-spin" />
-              {isEditing ? "Updating..." : "Saving..."}
+              {isEditing ? "Updating..." : "Creating..."}
             </>
           ) : (
-            isEditing ? "Update Transaction" : "Create Transaction"
+            isEditing ? "Update Budget" : "Create Budget"
           )}
         </Button>
       </div>
@@ -344,8 +337,7 @@ export function AddTransactionDialog({ transaction, trigger, open: controlledOpe
   const defaultTrigger = (
     <Button className="gap-2 h-10 rounded-xl px-4 transition-all font-semibold">
       <PlusIcon className="size-4" />
-      <span className="hidden sm:inline">Add New Transaction</span>
-      <span className="sm:hidden">Add</span>
+      <span>Add Budget</span>
     </Button>
   )
 
@@ -357,9 +349,9 @@ export function AddTransactionDialog({ transaction, trigger, open: controlledOpe
         </DrawerTrigger>
         <DrawerContent className="rounded-t-[32px] border-none">
           <DrawerHeader className="text-left px-6 pt-8">
-            <DrawerTitle className="text-2xl font-bold">{isEditing ? "Edit Transaction" : "Add New Transaction"}</DrawerTitle>
+            <DrawerTitle className="text-2xl font-bold">{isEditing ? "Edit Budget" : "New Budget"}</DrawerTitle>
             <DrawerDescription className="text-muted-foreground font-medium">
-              {isEditing ? "Update the details of your transaction." : "Fill in the details below to record a new transaction."}
+              {isEditing ? "Update your spending limit and period." : "Set a spending limit for a specific category."}
             </DrawerDescription>
           </DrawerHeader>
           <div className="px-2">
@@ -380,11 +372,11 @@ export function AddTransactionDialog({ transaction, trigger, open: controlledOpe
       <DialogTrigger asChild>
         {trigger || defaultTrigger}
       </DialogTrigger>
-      <DialogContent className="sm:max-w-[425px] rounded-[32px] border-none p-6">
+      <DialogContent className="sm:max-w-[425px] rounded-[32px] border-none p-6 ring-1 ring-border/50 shadow-none">
         <DialogHeader>
-          <DialogTitle className="text-2xl font-bold">{isEditing ? "Edit Transaction" : "Add New Transaction"}</DialogTitle>
+          <DialogTitle className="text-2xl font-bold">{isEditing ? "Edit Budget" : "New Budget"}</DialogTitle>
           <DialogDescription className="text-muted-foreground font-medium">
-            {isEditing ? "Update the details of your transaction." : "Fill in the details below to record a new transaction."}
+            {isEditing ? "Update your spending limit and period." : "Set a spending limit for a specific category."}
           </DialogDescription>
         </DialogHeader>
         {formContent}

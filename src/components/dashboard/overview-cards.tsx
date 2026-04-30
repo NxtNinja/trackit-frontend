@@ -41,7 +41,7 @@ export function OverviewCards({ startDate, endDate }: OverviewCardsProps) {
 
   return (
     <div className="grid gap-4 md:grid-cols-3">
-        <Card className="border shadow-sm">
+        <Card className="border-none ring-1 ring-border/50 shadow-none">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">Net Balance</CardTitle>
             <Badge variant="secondary" className="bg-muted text-foreground flex items-center gap-1 font-medium">

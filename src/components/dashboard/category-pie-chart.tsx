@@ -66,7 +66,7 @@ export function CategoryPieChart({ startDate, endDate }: { startDate: string, en
   }, [rawData])
 
   return (
-    <Card className="flex flex-col h-full border shadow-sm">
+    <Card className="flex flex-col h-full border-none ring-1 ring-border/50 bg-card/30 backdrop-blur-sm rounded-[32px] shadow-none overflow-hidden">
       <CardHeader className="items-center pb-0">
         <CardTitle>Expenses by Category</CardTitle>
         <CardDescription>
