@@ -19,12 +19,10 @@ export interface Transaction {
 
 export interface TransactionResponse {
   transactions: Transaction[];
-  pagination?: {
-    total: number;
-    page: number;
-    limit: number;
-    totalPages: number;
-  };
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
 }
 
 export interface SummaryData {

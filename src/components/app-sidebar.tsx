@@ -1,6 +1,7 @@
 "use client"
 
 import * as React from "react"
+import Link from "next/link"
 
 import { NavMain } from "@/components/nav-main"
 import { NavProjects } from "@/components/nav-projects"
@@ -49,20 +50,6 @@ const data = {
       icon: (
         <HugeiconsIcon icon={TransactionIcon} strokeWidth={2} />
       ),
-      items: [
-        {
-          title: "All Transactions",
-          url: "/transactions",
-        },
-        {
-          title: "Income",
-          url: "/transactions/income",
-        },
-        {
-          title: "Expenses",
-          url: "/transactions/expenses",
-        },
-      ],
     },
     {
       title: "Budgets",
@@ -103,29 +90,6 @@ const data = {
       ],
     },
   ],
-  navSecondary: [
-    {
-      title: "Settings",
-      url: "/settings",
-      icon: (
-        <HugeiconsIcon icon={Settings05Icon} strokeWidth={2} />
-      ),
-    },
-    {
-      title: "Support",
-      url: "#",
-      icon: (
-        <HugeiconsIcon icon={ChartRingIcon} strokeWidth={2} />
-      ),
-    },
-    {
-      title: "Feedback",
-      url: "#",
-      icon: (
-        <HugeiconsIcon icon={SentIcon} strokeWidth={2} />
-      ),
-    },
-  ],
   projects: [
     {
       name: "Recurring Bills",
@@ -154,13 +118,14 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
       const response = await apiProxy<User>("/auth/me", "GET")
       return response.data
     },
-    retry: false // Don't retry if auth fails
+    retry: false,
+    staleTime: Infinity, // User profile doesn't change often
   })
 
   const user = {
     name: userData?.name || "User",
     email: userData?.email || "",
-    avatar: userData?.avatar || "/avatars/user.jpg",
+    avatar: userData?.avatar || `https://api.dicebear.com/9.x/lorelei/svg?seed=${userData?.name || "User"}`,
   }
 
   return (
@@ -169,7 +134,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         <SidebarMenu>
           <SidebarMenuItem>
             <SidebarMenuButton size="lg" asChild>
-              <a href="/dashboard">
+              <Link href="/dashboard">
                 <div className="flex aspect-square size-8 items-center justify-center rounded-lg">
                   <HugeiconsIcon icon={Leaf01Icon} strokeWidth={2} className="size-5" />
                 </div>
@@ -177,7 +142,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                   <span className="truncate font-semibold">Trackit</span>
                   <span className="truncate text-xs text-muted-foreground">Expense Tracker</span>
                 </div>
-              </a>
+              </Link>
             </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>
@@ -185,7 +150,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
       <SidebarContent>
         <NavMain items={data.navMain} />
         <NavProjects projects={data.projects} />
-        <NavSecondary items={data.navSecondary} className="mt-auto" />
+        
       </SidebarContent>
       <SidebarFooter>
         <NavUser user={user} isLoading={isUserLoading} />
