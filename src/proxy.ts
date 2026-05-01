@@ -3,6 +3,7 @@ import type { NextRequest } from 'next/server'
  
 export function proxy(request: NextRequest) {
   const token = request.cookies.get('token')?.value
+  const refreshToken = request.cookies.get('refreshToken')?.value
   const { pathname } = request.nextUrl
 
   // Define public routes
@@ -19,13 +20,15 @@ export function proxy(request: NextRequest) {
     return NextResponse.next()
   }
 
-  // If not a public route and no token, redirect to login
-  if (!isPublicRoute && !token) {
+  // If not a public route and no session (neither token nor refreshToken), redirect to login
+  // We check for refreshToken because the access token (token) might have expired, 
+  // but we can still refresh it via the API interceptor.
+  if (!isPublicRoute && !token && !refreshToken) {
     return NextResponse.redirect(new URL('/login', request.url))
   }
 
   // If already authenticated and trying to access login/signup, redirect to dashboard
-  if ((pathname === '/login' || pathname === '/signup') && token) {
+  if ((pathname === '/login' || pathname === '/signup') && (token || refreshToken)) {
     return NextResponse.redirect(new URL('/dashboard', request.url))
   }
 

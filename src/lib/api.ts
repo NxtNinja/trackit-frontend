@@ -32,41 +32,43 @@ apiClient.interceptors.response.use(
   async (error) => {
     const originalRequest = error.config;
 
-    // If error is 401 and it's not a retry and not a login request
-    if (error.response?.status === 401 && !originalRequest._retry && !originalRequest.url.includes('/auth/login')) {
-      
-      // If we are already refreshing, queue this request
+    const isAuthEndpoint =
+      originalRequest.url.includes('/auth/login') ||
+      // Exclude the refresh endpoint itself to prevent an infinite recursive loop:
+      // if /auth/refresh returns 401 (e.g. missing/expired refresh token cookie),
+      // we must NOT attempt another refresh — just bail out and redirect to login.
+      originalRequest.url.includes('/auth/refresh');
+
+    // Only attempt a refresh for 401s on non-auth, non-retried requests
+    if (error.response?.status === 401 && !originalRequest._retry && !isAuthEndpoint) {
+
+      // If a refresh is already in flight, queue this request to retry after
       if (isRefreshing) {
-        return new Promise((resolve, reject) => {
+        return new Promise<void>((resolve, reject) => {
           failedQueue.push({ resolve, reject });
         })
-          .then(() => {
-            return apiClient(originalRequest);
-          })
-          .catch((err) => {
-            return Promise.reject(err);
-          });
+          .then(() => apiClient(originalRequest))
+          .catch((err) => Promise.reject(err));
       }
 
       originalRequest._retry = true;
       isRefreshing = true;
 
       try {
-        // Try to refresh the token
+        // The refresh endpoint sets new httpOnly cookies on success
         await apiClient.post('/auth/refresh');
-        
-        // Refresh success
+
+        // Unblock all queued requests now that cookies have been updated
         processQueue(null);
         return apiClient(originalRequest);
       } catch (refreshError) {
-        // Refresh failed - redirect to login
+        // Refresh failed — clear the queue and redirect to login
         processQueue(refreshError, null);
-        
-        // Only redirect if we're not already on the login page
+
         if (typeof window !== 'undefined' && !window.location.pathname.includes('/login')) {
           window.location.href = '/login';
         }
-        
+
         return Promise.reject(refreshError);
       } finally {
         isRefreshing = false;

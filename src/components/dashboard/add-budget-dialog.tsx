@@ -55,7 +55,7 @@ import { cn } from "@/lib/utils"
 import { Budget } from "@/types/api"
 
 const budgetSchema = z.object({
-  amount: z.coerce.number().positive("Amount must be positive"),
+  amount: z.number().positive("Amount must be positive"),
   categoryId: z.string().min(1, "Please select a category"),
   period: z.enum(["monthly", "weekly", "yearly"]),
   startDate: z.date(),
@@ -145,17 +145,24 @@ export function AddBudgetDialog({ budget, trigger, open: controlledOpen, onOpenC
 
   const mutation = useMutation({
     mutationFn: async (data: BudgetFormValues) => {
-      const payload = {
+      if (isEditing && budget) {
+        // Update: categoryId is immutable — only send mutable fields
+        const updatePayload = {
+          amount: Number(data.amount),
+          period: data.period,
+          startDate: format(data.startDate, "yyyy-MM-dd"),
+        }
+        return await apiProxy(`/transactions/budgets/${budget.id}`, "PUT", updatePayload)
+      }
+
+      // Create: include categoryId
+      const createPayload = {
         categoryId: data.categoryId,
         amount: Number(data.amount),
         period: data.period,
         startDate: format(data.startDate, "yyyy-MM-dd"),
       }
-      
-      if (isEditing && budget) {
-        return await apiProxy(`/transactions/budgets/${budget.id}`, "PUT", payload)
-      }
-      return await apiProxy("/transactions/budgets/createBudget", "POST", payload)
+      return await apiProxy("/transactions/budgets/createBudget", "POST", createPayload)
     },
     onSuccess: () => {
       toast.success(isEditing ? "Budget updated successfully" : "Budget created successfully")
